@@ -5,6 +5,7 @@
 #include "os_type.h"
 #include "driver/uart.h"
 #include "lpd6803.h"
+#include "tpm2net.h"
 
 #define user_procTaskPrio        0
 #define user_procTaskQueueLen    1
@@ -29,6 +30,7 @@ user_init() {
 
 	lpd6803_init();
 	lpd6803_show();
+	tpm2net_init();
 
 	lpd6803_startRainbow();
 

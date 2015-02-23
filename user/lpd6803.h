@@ -1,4 +1,4 @@
-#define numLEDs 5
+#define maxLEDs 256
 #define LPD6803_START 0
 #define LPD6803_HEADER 1
 #define LPD6803_DATA 2
@@ -11,6 +11,7 @@
 #define LPD6803_MODE_RAINBOW2 4
 #define LPD6803_MODE_SNOW 5
 #define LPD6803_MODE_RGB 6
+#define LPD6803_MODE_TPM2NET 99
 
 #define sleepms(x) os_delay_us(x*1000);
 
@@ -18,6 +19,7 @@ void ICACHE_FLASH_ATTR lpd6803_LedOut();
 void ICACHE_FLASH_ATTR lpd6803_setPixelColor(uint16_t n, uint8_t b, uint8_t r, uint8_t g);
 void ICACHE_FLASH_ATTR lpd6803_setPixelColorByColor(uint16_t n, uint16_t c);
 void ICACHE_FLASH_ATTR lpd6803_setAllPixelColor(uint8_t r, uint8_t g, uint8_t b);
+void ICACHE_FLASH_ATTR lpd6803_strip(uint8_t * buffer, uint16_t length);
 void ICACHE_FLASH_ATTR lpd6803_init();
 unsigned int ICACHE_FLASH_ATTR lpd6803_Color(uint8_t b, uint8_t r, uint8_t g);
 unsigned int ICACHE_FLASH_ATTR lpd6803_Wheel(uint8_t WheelPos);
@@ -28,6 +30,9 @@ uint16_t ICACHE_FLASH_ATTR lpd6803_getPixelColorG(uint16_t n);
 uint16_t ICACHE_FLASH_ATTR lpd6803_getPixelColorB(uint16_t n);
 uint8_t ICACHE_FLASH_ATTR lpd6803_getMode();
 
+//tpm2net mode functions
+void ICACHE_FLASH_ATTR lpd6803_starttpm2net();
+void ICACHE_FLASH_ATTR lpd6803_tpm2net_loop();
 
 //Running Pixel mode functions
 void ICACHE_FLASH_ATTR lpd6803_startRunningPixel(uint16_t color);

@@ -4,17 +4,19 @@
  *  Created on: 13 Dec 2014 
  *      Author: Aleksey Kudakov <popsodav@gmail.com>
  */
-#include "espmissingincludes.h"
+//#include "espmissingincludes.h"
 #include "ets_sys.h"
 #include "osapi.h"
 #include "gpio.h"
 #include "os_type.h"
 #include "lpd6803.h"
 
-static uint16_t lpd6803_pixels[numLEDs];
-static uint16_t lpd6803_pixels_r[numLEDs];
-static uint16_t lpd6803_pixels_g[numLEDs];
-static uint16_t lpd6803_pixels_b[numLEDs];
+uint16_t numLEDs = maxLEDs; // max rgb leds
+
+static uint16_t lpd6803_pixels[maxLEDs];
+static uint16_t lpd6803_pixels_r[maxLEDs];
+static uint16_t lpd6803_pixels_g[maxLEDs];
+static uint16_t lpd6803_pixels_b[maxLEDs];
 
 static int lpd6803_SendMode; // Used in interrupt 0=start,1=header,2=data,3=data done
 static uint32_t lpd6803_BitCount;   // Used in interrupt
@@ -24,6 +26,10 @@ static uint32_t lpd6803_BlankCounter;  //Used in interrupt.
 static uint32_t lpd6803_lastdata = 0;
 static uint16_t lpd6803_swapAsap = 0; //flag to indicate that the colors need an update asap
 static uint8_t lpd6803_mode = 0;
+
+//tpm2net mode variables
+uint16_t lastframe_counter = 0; //counter for tpm2net no-frame recieved timeout
+uint16_t tpm2net_timeout = 3000; // how long to wait until we consider the tpm2net has timedout
 
 //Running Pixel and Running Line modes variables
 static uint16_t lpd6803_mode_rp_CurrentPixel = 0;
@@ -111,8 +117,7 @@ void ICACHE_FLASH_ATTR lpd6803_LedOut() {
 	lpd6803_BlankCounter++;
 }
 
-void ICACHE_FLASH_ATTR lpd6803_setPixelColor(uint16_t n, uint8_t r, uint8_t g,
-		uint8_t b) {
+void ICACHE_FLASH_ATTR lpd6803_setPixelColor(uint16_t n, uint8_t r, uint8_t g, uint8_t b) {
 	uint16_t data;
 
 	if (n > numLEDs)
@@ -243,7 +248,24 @@ void ICACHE_FLASH_ATTR lpd6803_loop() {
 	case (LPD6803_MODE_RGB):
 		lpd6803_RGB_loop();
 		break;
+	case (LPD6803_MODE_TPM2NET):
+		lpd6803_tpm2net_loop();
+		break;
 	}
+}
+
+void ICACHE_FLASH_ATTR lpd6803_tpm2net_loop() {
+	lastframe_counter += 1; 
+	if (lastframe_counter > tpm2net_timeout) { // tpm2net source timedout
+		lpd6803_startRainbow();
+	} 
+}
+
+void ICACHE_FLASH_ATTR lpd6803_starttpm2net() {
+	lpd6803_mode = LPD6803_MODE_TPM2NET;
+	os_timer_disarm(&modeTimer);
+	os_timer_setfn(&modeTimer, (os_timer_func_t *) lpd6803_loop, NULL);
+	os_timer_arm(&modeTimer, 150, 1);
 }
 
 void ICACHE_FLASH_ATTR lpd6803_RunningLine_loop() {
@@ -316,9 +338,10 @@ void ICACHE_FLASH_ATTR lpd6803_startRunningPixel(uint16_t color) {
 }
 
 void ICACHE_FLASH_ATTR lpd6803_Rainbow_loop() {
+	int i;
 	if (lpd6803_mode_rainbow_j < 96 * 5) {
 
-		for (int i = 0; i < numLEDs; i++) {
+		for (i = 0; i < numLEDs; i++) {
 			lpd6803_setPixelColorByColor(i,
 					lpd6803_Wheel(
 							(i * 96 / numLEDs + lpd6803_mode_rainbow_j) % 96));
@@ -350,9 +373,10 @@ void ICACHE_FLASH_ATTR lpd6803_disableModes() {
 }
 
 void ICACHE_FLASH_ATTR lpd6803_Rainbow2_loop() {
+	int i;
 	if (lpd6803_mode_rainbow_j < 96 * 5) {
 
-		for (int i = 0; i < numLEDs; i++) {
+		for (i = 0; i < numLEDs; i++) {
 			lpd6803_setPixelColorByColor(i,
 					lpd6803_Wheel(
 							(96 / numLEDs + lpd6803_mode_rainbow_j) % 96));
@@ -377,8 +401,9 @@ void ICACHE_FLASH_ATTR lpd6803_Snow_loop() {
 			lpd6803_Color(0, 0, 255) };
 
 	int j = 0;
+	int i;
 
-	for (int i = lpd6803_mode_rainbow_j; i < numLEDs; i++) {
+	for (i = lpd6803_mode_rainbow_j; i < numLEDs; i++) {
 		lpd6803_setPixelColorByColor(i, colors[j]);
 		j++;
 		if (j > 2) {
@@ -386,7 +411,7 @@ void ICACHE_FLASH_ATTR lpd6803_Snow_loop() {
 		}
 	}
 
-	for (int i = 0; i < lpd6803_mode_rainbow_j; i++) {
+	for (i = 0; i < lpd6803_mode_rainbow_j; i++) {
 		lpd6803_setPixelColorByColor(i, colors[j]);
 		j++;
 		if (j > 2) {
@@ -414,8 +439,9 @@ void ICACHE_FLASH_ATTR lpd6803_RGB_loop() {
 			lpd6803_Color(0, 0, 255) };
 
 	int j = 0;
+	int i;
 
-	for (int i = lpd6803_mode_rainbow_j; i < numLEDs; i++) {
+	for (i = lpd6803_mode_rainbow_j; i < numLEDs; i++) {
 		lpd6803_setPixelColorByColor(i, colors[j]);
 		j++;
 		if (j > 2) {
@@ -423,7 +449,7 @@ void ICACHE_FLASH_ATTR lpd6803_RGB_loop() {
 		}
 	}
 
-	for (int i = 0; i < lpd6803_mode_rainbow_j; i++) {
+	for (i = 0; i < lpd6803_mode_rainbow_j; i++) {
 		lpd6803_setPixelColorByColor(i, colors[j]);
 		j++;
 		if (j > 2) {
@@ -444,5 +470,26 @@ void ICACHE_FLASH_ATTR lpd6803_startRGB() {
 	os_timer_disarm(&modeTimer);
 	os_timer_setfn(&modeTimer, (os_timer_func_t *) lpd6803_loop, NULL);
 	os_timer_arm(&modeTimer, 150, 1);
+}
+
+void ICACHE_FLASH_ATTR lpd6803_strip(uint8_t * buffer, uint16_t length) {
+	uint16_t i;
+	numLEDs = length/3; // set numLEDs to number recieved from network
+	lastframe_counter = 0; // reset last frame received counter
+
+	if (lpd6803_mode != LPD6803_MODE_TPM2NET) { // switch to tpm2net mode
+		lpd6803_starttpm2net();
+	}
+
+	if (lpd6803_SendMode != LPD6803_DONE) { // wait until data is done?
+		return; //drop frame
+	}
+	
+	for( i = 0; i < numLEDs; i++ ) {
+		uint16_t cled = i * 3; // current led array location
+		lpd6803_setPixelColor(i, buffer[cled], buffer[cled+1], buffer[cled+2]); // load up lpd6803's data array
+	}
+
+	lpd6803_show();
 }
 
